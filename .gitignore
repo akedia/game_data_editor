@@ -8,6 +8,8 @@
 
 ## Directory-based project format:
 .idea/
+json_output/
+
 # if you remove the above rule, at least ignore the following:
 
 # User-specific stuff:
