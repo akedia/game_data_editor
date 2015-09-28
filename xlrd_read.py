@@ -2,7 +2,7 @@ __author__ = 'yaoyuanchao'
 
 from collections import OrderedDict
 import json
-
+import os
 import xlrd
 
 
@@ -40,18 +40,23 @@ def format_row_data(field_labels, field_data):
     return zip(field_labels, field_data)
 
 
-filename = "all_buildings.xls"
-wb = xlrd.open_workbook(filename)
+excel_input_root = "excel_input/"
+json_output_root = "json_output/"
 
-for ws in wb.sheets():
+for excel_lists in os.listdir(excel_input_root):
+    path = os.path.join(excel_input_root, excel_lists)
+    if os.path.isdir(path):
+        continue
+    wb = xlrd.open_workbook(path)
+    for ws in wb.sheets():
 
-    field_names = ws.row_values(0)
+        field_names = ws.row_values(0)
 
-    item_list = []
-    for row_num in range(1, ws.nrows):
-        new_row = OrderedDict(format_row_data(field_names, ws.row_values(row_num)))
-        item_list.append(new_row)
+        item_list = []
+        for row_num in range(1, ws.nrows):
+            new_row = OrderedDict(format_row_data(field_names, ws.row_values(row_num)))
+            item_list.append(new_row)
 
-    j = json.dumps(item_list, indent=2)
-    with open(filename.split('.')[0] + '_' + ws.name + '.json', 'w') as f:
-        f.write(j)
+        j = json.dumps(item_list, indent=2)
+        with open(json_output_root + excel_lists.split('.')[0] + '_' + ws.name + '.json', 'w') as f:
+            f.write(j)
