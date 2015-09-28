@@ -6,7 +6,7 @@ import json
 import xlrd
 
 
-def NumOrStr(value):
+def num_or_str(value):
     try:
         float_v = float(value)
         try:
@@ -27,12 +27,13 @@ def format_row_data(field_labels, field_data):
             field_data[order] = eval(field_data[order].capitalize())
         if field_type in {'array', 'list'}:
             field_data[order] = eval(field_data[order].replace('{', '[').replace('}', ']'))
-        if field_type in {'table', 'dict', 'map'}:
+        if field_type in {'table', 'dict', 'map', 'object'}:
             data_string = field_data[order].strip(' {}[]()')
-            data_string = data_string.replace(';', ',').replace('=', ':')
+            data_string = data_string.replace(';', ',').replace('=', ':').replace('"', '').replace("'", '')
             if len(data_string) > 0:
                 field_data[order] = OrderedDict(
-                    [(k, NumOrStr(v)) for k, v in (pair.split(':') for pair in data_string.split(','))])
+                    [(k.strip(), num_or_str(v.strip())) for k, v in
+                     (pair.split(':') for pair in data_string.split(','))])
             else:
                 field_data[order] = OrderedDict()
 
