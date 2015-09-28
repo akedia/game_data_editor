@@ -6,6 +6,9 @@ import os
 import xlrd
 
 
+def is_excel_file(file_path):
+    return file_path.rsplit('.',1)[1] in {'xls','xlxs'}
+
 def num_or_str(value):
     try:
         float_v = float(value)
@@ -45,6 +48,8 @@ json_output_root = "json_output/"
 
 for excel_lists in os.listdir(excel_input_root):
     path = os.path.join(excel_input_root, excel_lists)
+    if not is_excel_file(path):
+        continue
     if os.path.isdir(path):
         continue
     wb = xlrd.open_workbook(path)
