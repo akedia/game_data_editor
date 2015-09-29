@@ -58,10 +58,11 @@ for excel_lists in os.listdir(excel_input_root):
         field_names = ws.row_values(0)
 
         item_list = []
+        json_list=[]
         for row_num in range(1, ws.nrows):
             new_row = OrderedDict(format_row_data(field_names, ws.row_values(row_num)))
             item_list.append(new_row)
-
+            json_list.append(json.dumps(new_row,indent=2))
         j = json.dumps(item_list, indent=2)
         with open(json_output_root + excel_lists.split('.')[0] + '_' + ws.name + '.json', 'w') as f:
             f.write(j)
