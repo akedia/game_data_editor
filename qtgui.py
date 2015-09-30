@@ -59,19 +59,17 @@ class DataEditor(QtGui.QWidget):
         load_excel_button = QtGui.QPushButton(u"导入 表格")
         load_gdrive_button = QtGui.QPushButton(u"导入 Google文档")
         load_json_button = QtGui.QPushButton(u"导入 json")
-        export_excel_button = QtGui.QPushButton(u"导出 表格")
-        export_gdrive_button = QtGui.QPushButton(u"导出 Google文档")
-        export_json_button = QtGui.QPushButton(u"导出 json")
         load_area_layout = QtGui.QHBoxLayout()
         load_area_layout.addWidget(load_excel_button)
         load_area_layout.addWidget(load_gdrive_button)
         load_area_layout.addWidget(load_json_button)
         load_area_box = QtGui.QWidget()
         load_area_box.setLayout(load_area_layout)
+        load_excel_button.clicked.connect(self.load_from_excel)
 
         self.line_editor_area_list = QtGui.QListWidget()
         self.dict_list = []
-        self.json_list = []
+        self.line_editor_area_list.currentRowChanged.connect(self.display_item_view)
 
         insert_new_line_button=QtGui.QPushButton(u"插入")
         delete_line_button=QtGui.QPushButton(u"删除")
@@ -83,12 +81,16 @@ class DataEditor(QtGui.QWidget):
         line_controller_area_box=QtGui.QWidget()
         line_controller_area_box.setLayout(line_controller_area_layout)
 
+        export_excel_button = QtGui.QPushButton(u"导出 表格")
+        export_gdrive_button = QtGui.QPushButton(u"导出 Google文档")
+        export_json_button = QtGui.QPushButton(u"导出 json")
         export_area_layout = QtGui.QHBoxLayout()
         export_area_layout.addWidget(export_excel_button)
         export_area_layout.addWidget(export_gdrive_button)
         export_area_layout.addWidget(export_json_button)
         export_area_box = QtGui.QWidget()
         export_area_box.setLayout(export_area_layout)
+        export_json_button.clicked.connect(self.save_to_json)
 
         left_panel_layout = QtGui.QVBoxLayout()
         left_panel_layout.addWidget(load_area_box)
@@ -106,13 +108,16 @@ class DataEditor(QtGui.QWidget):
         self.item_editor_area_layout.addWidget(field_name_label,0,0)
         self.item_editor_area_layout.addWidget(field_type_label,0,1)
         self.item_editor_area_layout.addWidget(field_value_label,0,2)
-        self.item_editor_area_layout.setColumnMinimumWidth(0,80)
-        self.item_editor_area_layout.setColumnMinimumWidth(1,60)
+        self.item_editor_area_layout.setColumnMinimumWidth(0,100)
+        self.item_editor_area_layout.setColumnMinimumWidth(1,100)
+        self.item_editor_area_layout.setColumnMinimumWidth(2,200)
         self.item_editor_area_layout.setRowMinimumHeight(0,40)
+        self.item_editor_area_layout.setRowStretch(1,1)
         self.item_list=[]
         item_editor_area_box=QtGui.QWidget()
         item_editor_area_box.setLayout(self.item_editor_area_layout)
         item_editor_area_scroll=QtGui.QScrollArea()
+        item_editor_area_scroll.setWidgetResizable(True)
         item_editor_area_scroll.setWidget(item_editor_area_box)
 
         reset_item_button=QtGui.QPushButton(u"初始化")
@@ -128,55 +133,96 @@ class DataEditor(QtGui.QWidget):
         right_panel_layout=QtGui.QVBoxLayout()
         right_panel_layout.addWidget(item_editor_area_scroll)
         right_panel_layout.addWidget(item_controller_area_box)
-        right_panel=QtGui.QWidget()
-        right_panel.setLayout(right_panel_layout)
+        self.right_panel=QtGui.QWidget()
+        self.right_panel.setLayout(right_panel_layout)
+        self.right_panel.hide()
+        close_item_button.clicked.connect(self.right_panel.hide)
+        save_item_button.clicked.connect(self.save_item_change)
 
         main_box_layout=QtGui.QHBoxLayout()
         main_box_layout.addWidget(left_panel)
-        main_box_layout.addWidget(right_panel)
+        main_box_layout.addWidget(self.right_panel)
         main_box_layout.setContentsMargins(15,0,15,0)
 
         self.display_line_view()
         self.setLayout(main_box_layout)
-        #self.setContentsMargins(0,0,0,0)
-        self.resize(550, 620)
+        self.resize(1200, 700)
 
-    def clear_table_view(self,table):
-        #self.data_area_line_list = []
-        for i in reversed(range(table.count())):
-            table.itemAt(i).widget().deleteLater()
+    def clear_item_view(self):
+        #for row in range(self.item_editor_area_layout.rowCount()):
+        #    self.item_editor_area_layout.setRowStretch(row,0)
+        self.item_editor_area_layout.setRowStretch(self.item_editor_area_layout.rowCount()-1,0)
+        for i in reversed(range(3,self.item_editor_area_layout.count())):
+            self.item_editor_area_layout.itemAt(i).widget().setParent(None)
 
     def display_line_view(self):
-        path = "excel_input/all_buildings.xls"
-        wb = xlrd.open_workbook(path)
-        ws = wb.sheet_by_index(0)
-        field_names = ws.row_values(0)
+        self.line_editor_area_list.clear()
+        json_list=[]
+        for row in self.dict_list:
+            json_list.append(json.dumps(row))
+        self.line_editor_area_list.addItems(json_list)
 
-        self.dict_list = []
-        self.json_list = []
-        for row_num in range(1, ws.nrows):
-            new_row = OrderedDict(format_row_data(field_names, ws.row_values(row_num)))
-            self.dict_list.append(new_row)
-            self.json_list.append(json.dumps(new_row))
-        # j = json.dumps(dict_list, indent=2)
-
-        self.line_editor_area_list.addItems(self.json_list)
-
-    def display_item_view(self):
-        item_dict=self.dict_list[0]
+    def display_item_view(self,row_num):
+        self.clear_item_view()
+        self.right_panel.show()
+        item_dict=self.dict_list[row_num]
         self.item_list=[]
         for (field,field_data) in item_dict.iteritems():
             row_count=self.item_editor_area_layout.rowCount()
-            field_name=field.split('_')[1]
-            field_type=field.split('_')[0].lower()
-            new_item=[QtGui.QLabel(field_name),QtGui.QLabel(field_type),QtGui.QLineEdit(field_data)]
+            field_name=field.split('_',1)[1]
+            field_type=field.split('_',1)[0]
+            field_name_label=QtGui.QLabel(field_name)
+            field_type_label=QtGui.QLabel(field_type)
+            field_data_line=QtGui.QLineEdit(json.dumps(field_data).strip('"').strip("'"))
+            field_data_line.setValidator(self.type_validator(field_type.lower()))
+            new_item=[field_name_label,field_type_label,field_data_line]
             self.item_list.append(new_item)
-            self.item_editor_area_layout.addWidget(new_item[0],row_count,0)
-            self.item_editor_area_layout.addWidget(new_item[1],row_count,1)
-            self.item_editor_area_layout.addWidget(new_item[2],row_count,2)
+            self.item_editor_area_layout.addWidget(field_name_label,row_count,0)
+            self.item_editor_area_layout.addWidget(field_type_label,row_count,1)
+            self.item_editor_area_layout.addWidget(field_data_line,row_count,2)
+        self.item_editor_area_layout.setRowStretch(self.item_editor_area_layout.rowCount(),1)
 
+    def line_selected(self,line_num):
+        self.display_item_view(line_num)
 
+    def save_to_json(self):
+        j=json.dumps(self.dict_list,indent=2)
+        file_name=QtGui.QFileDialog.getSaveFileName(self,u"json文件保存",QtCore.QDir.currentPath()+"/json_output/"+".json","json files (*.json)")
+        if file_name<>"":
+            with open(file_name, 'w') as f:
+                f.write(j)
 
+    def load_from_excel(self):
+        file_name=QtGui.QFileDialog.getOpenFileName(self,u"excel文件打开",QtCore.QDir.currentPath()+"/excel_input/","excel files (*.xls)")
+        if file_name<>"":
+            self.dict_list = []
+            wb = xlrd.open_workbook(file_name)
+            ws = wb.sheet_by_index(0)
+            field_names = ws.row_values(0)
+            for row_num in range(1, ws.nrows):
+                new_row = OrderedDict(format_row_data(field_names, ws.row_values(row_num)))
+                self.dict_list.append(new_row)
+            self.display_line_view()
+            self.right_panel.hide()
+
+    def save_item_change(self):
+        selected_row=self.line_editor_area_list.currentRow()
+        field_names=[]
+        field_values=[]
+
+        for field_order in range(len(self.dict_list[selected_row])):
+            widget_item_row=self.item_list[field_order]
+            field_names.append(str(widget_item_row[1].text()+'_'+widget_item_row[0].text()))
+            field_values.append(str(widget_item_row[2].text()))
+        self.dict_list[selected_row]=OrderedDict(format_row_data(field_names,field_values))
+        self.line_editor_area_list.item(selected_row).setText(json.dumps(self.dict_list[selected_row]))
+
+    def type_validator(self,type):
+        if type in {'int'}:
+            return QtGui.QIntValidator()
+        if type in {'float'}:
+            return QtGui.QDoubleValidator()
+        return None
 
 app = QtGui.QApplication(sys.argv)
 main_window = DataEditor()
