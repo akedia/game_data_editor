@@ -90,12 +90,13 @@ class DataEditor(QtGui.QWidget):
 
 
         self.line_editor_area_list = QtGui.QListWidget()
-        self.line_editor_area_list.setStyleSheet( "QListWidget::item { border-bottom: 1px; }" );
+        #self.line_editor_area_list.setStyleSheet("QListWidget {alternate-background-color: yellow; }");
         self.line_editor_area_list.addItem(u"点击上方按钮载入数据")
         self.dict_list = []
         self.data_loaded=False
         self.schema_dict={}
-        self.line_editor_area_list.itemClicked.connect(self.line_selected)
+        self.line_editor_area_list.currentRowChanged.connect(self.line_selected)
+
 
         insert_new_line_button=QtGui.QPushButton(u"插入")
         delete_line_button=QtGui.QPushButton(u"删除")
@@ -206,8 +207,6 @@ class DataEditor(QtGui.QWidget):
     def line_selected(self):
         if self.data_loaded:
             self.display_item_view(self.line_editor_area_list.currentRow())
-
-
 
     def load_from_excel(self):
         file_name=QtGui.QFileDialog.getOpenFileName(self,u"excel文件打开",QtCore.QDir.currentPath()+"/excel_input/","excel files (*.xls)")
