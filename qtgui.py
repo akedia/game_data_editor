@@ -58,18 +58,36 @@ class DataEditor(QtGui.QWidget):
         # left panel
         load_excel_button = QtGui.QPushButton(u"导入 表格")
         load_gdrive_button = QtGui.QPushButton(u"导入 Google文档")
+        load_gdrive_button.setEnabled(False)
         load_json_button = QtGui.QPushButton(u"导入 json")
         load_area_layout = QtGui.QHBoxLayout()
         load_area_layout.addWidget(load_excel_button)
         load_area_layout.addWidget(load_gdrive_button)
         load_area_layout.addWidget(load_json_button)
+        load_area_layout.setContentsMargins(0,0,0,0)
         load_area_box = QtGui.QWidget()
         load_area_box.setLayout(load_area_layout)
         load_excel_button.clicked.connect(self.load_from_excel)
 
+        export_excel_button = QtGui.QPushButton(u"导出 表格")
+        export_gdrive_button = QtGui.QPushButton(u"导出 Google文档")
+        export_gdrive_button.setEnabled(False)
+        export_json_button = QtGui.QPushButton(u"导出 json")
+        export_area_layout = QtGui.QHBoxLayout()
+        export_area_layout.addWidget(export_excel_button)
+        export_area_layout.addWidget(export_gdrive_button)
+        export_area_layout.addWidget(export_json_button)
+        export_area_layout.setContentsMargins(0,0,0,20)
+        export_area_box = QtGui.QWidget()
+        export_area_box.setLayout(export_area_layout)
+        export_json_button.clicked.connect(self.save_to_json)
+
         self.line_editor_area_list = QtGui.QListWidget()
+        self.line_editor_area_list.addItem(u"点击上方按钮载入数据")
         self.dict_list = []
-        self.line_editor_area_list.currentRowChanged.connect(self.display_item_view)
+        self.data_loaded=False
+        self.schema_dict={}
+        self.line_editor_area_list.itemClicked.connect(self.line_selected)
 
         insert_new_line_button=QtGui.QPushButton(u"插入")
         delete_line_button=QtGui.QPushButton(u"删除")
@@ -80,23 +98,16 @@ class DataEditor(QtGui.QWidget):
         line_controller_area_layout.addWidget(copy_line_button)
         line_controller_area_box=QtGui.QWidget()
         line_controller_area_box.setLayout(line_controller_area_layout)
-
-        export_excel_button = QtGui.QPushButton(u"导出 表格")
-        export_gdrive_button = QtGui.QPushButton(u"导出 Google文档")
-        export_json_button = QtGui.QPushButton(u"导出 json")
-        export_area_layout = QtGui.QHBoxLayout()
-        export_area_layout.addWidget(export_excel_button)
-        export_area_layout.addWidget(export_gdrive_button)
-        export_area_layout.addWidget(export_json_button)
-        export_area_box = QtGui.QWidget()
-        export_area_box.setLayout(export_area_layout)
-        export_json_button.clicked.connect(self.save_to_json)
+        delete_line_button.clicked.connect(self.delete_row)
+        copy_line_button.clicked.connect(self.copy_row)
+        insert_new_line_button.clicked.connect(self.insert_row)
 
         left_panel_layout = QtGui.QVBoxLayout()
         left_panel_layout.addWidget(load_area_box)
+        left_panel_layout.addWidget(export_area_box)
         left_panel_layout.addWidget(self.line_editor_area_list)
         left_panel_layout.addWidget(line_controller_area_box)
-        left_panel_layout.addWidget(export_area_box)
+
         left_panel=QtGui.QWidget()
         left_panel.setLayout(left_panel_layout)
 
@@ -138,13 +149,14 @@ class DataEditor(QtGui.QWidget):
         self.right_panel.hide()
         close_item_button.clicked.connect(self.right_panel.hide)
         save_item_button.clicked.connect(self.save_item_change)
+        reset_item_button.clicked.connect(self.clear_item_editor_content)
 
         main_box_layout=QtGui.QHBoxLayout()
         main_box_layout.addWidget(left_panel)
         main_box_layout.addWidget(self.right_panel)
         main_box_layout.setContentsMargins(15,0,15,0)
 
-        self.display_line_view()
+        #self.display_line_view()
         self.setLayout(main_box_layout)
         self.resize(1200, 700)
 
@@ -182,8 +194,9 @@ class DataEditor(QtGui.QWidget):
             self.item_editor_area_layout.addWidget(field_data_line,row_count,2)
         self.item_editor_area_layout.setRowStretch(self.item_editor_area_layout.rowCount(),1)
 
-    def line_selected(self,line_num):
-        self.display_item_view(line_num)
+    def line_selected(self):
+        if self.data_loaded:
+            self.display_item_view(self.line_editor_area_list.currentRow())
 
     def save_to_json(self):
         j=json.dumps(self.dict_list,indent=2)
@@ -204,6 +217,8 @@ class DataEditor(QtGui.QWidget):
                 self.dict_list.append(new_row)
             self.display_line_view()
             self.right_panel.hide()
+            self.data_loaded=True
+            self.schema_dict=self.dict_list[0]
 
     def save_item_change(self):
         selected_row=self.line_editor_area_list.currentRow()
@@ -223,6 +238,59 @@ class DataEditor(QtGui.QWidget):
         if type in {'float'}:
             return QtGui.QDoubleValidator()
         return None
+
+    def initial_value(self,type):
+        if type in {'int'}:
+            return '0'
+        if type in {'float'}:
+            return '0.0'
+        if type in {'bool'}:
+            return 'false'
+        if type in {'array', 'list'}:
+            return '[]'
+        if type in {'table', 'dict', 'map', 'object'}:
+            return '{}'
+        return ''
+
+    def clear_item_editor_content(self):
+        for [_,field_type,field_data] in self.item_list:
+            field_data.setText(self.initial_value(str(field_type.text()).lower()))
+
+    def delete_row(self):
+        row=self.line_editor_area_list.currentRow()
+        if row==-1 or not self.data_loaded:
+            return
+        row_item=self.line_editor_area_list.takeItem(row)
+        del self.dict_list[row]
+        del row_item
+        if len(self.dict_list)==0:
+            self.right_panel.hide()
+            return
+        self.line_selected()
+
+    def copy_row(self):
+        row=self.line_editor_area_list.currentRow()
+        if row==-1 or not self.data_loaded:
+            return
+        father_item=self.line_editor_area_list.item(row)
+        self.line_editor_area_list.insertItem(row+1,father_item.text())
+        father_dict=self.dict_list[row]
+        self.dict_list.insert(row+1,OrderedDict(father_dict))
+        self.line_editor_area_list.setCurrentRow(row+1)
+        self.line_selected()
+
+    def insert_row(self):
+        row=self.line_editor_area_list.currentRow()
+        if len(self.schema_dict)==0:
+            return
+        #father_item=self.line_editor_area_list.item(row)
+        self.line_editor_area_list.insertItem(row+1,'')
+        father_dict=self.schema_dict
+        self.dict_list.insert(row+1,OrderedDict(father_dict))
+        self.line_editor_area_list.setCurrentRow(row+1)
+        self.clear_item_editor_content()
+        self.save_item_change()
+        self.line_selected()
 
 app = QtGui.QApplication(sys.argv)
 main_window = DataEditor()
