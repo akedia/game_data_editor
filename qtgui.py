@@ -6,6 +6,7 @@ import json
 from collections import OrderedDict
 
 import xlrd
+import xlwt
 from PyQt4 import QtGui
 from PyQt4 import QtCore
 
@@ -26,7 +27,7 @@ def num_or_str(value):
         return value
 
 def parse_field_data(field_type,field_data):
-    if field_type in {'int', 'str', 'float'}:
+    if field_type in {'int', 'float'}:
         return eval(field_type)(field_data)
     if field_type in {'bool'}:
         return eval(field_data.capitalize())
@@ -68,11 +69,15 @@ class DataEditor(QtGui.QWidget):
         load_area_box = QtGui.QWidget()
         load_area_box.setLayout(load_area_layout)
         load_excel_button.clicked.connect(self.load_from_excel)
+        load_json_button.clicked.connect(self.load_from_json)
 
         export_excel_button = QtGui.QPushButton(u"导出 表格")
+        #export_excel_button.setEnabled(False)
         export_gdrive_button = QtGui.QPushButton(u"导出 Google文档")
         export_gdrive_button.setEnabled(False)
         export_json_button = QtGui.QPushButton(u"导出 json")
+        #export_json_button.setEnabled(False)
+
         export_area_layout = QtGui.QHBoxLayout()
         export_area_layout.addWidget(export_excel_button)
         export_area_layout.addWidget(export_gdrive_button)
@@ -81,8 +86,11 @@ class DataEditor(QtGui.QWidget):
         export_area_box = QtGui.QWidget()
         export_area_box.setLayout(export_area_layout)
         export_json_button.clicked.connect(self.save_to_json)
+        export_excel_button.clicked.connect(self.save_to_excel)
+
 
         self.line_editor_area_list = QtGui.QListWidget()
+        self.line_editor_area_list.setStyleSheet( "QListWidget::item { border-bottom: 1px; }" );
         self.line_editor_area_list.addItem(u"点击上方按钮载入数据")
         self.dict_list = []
         self.data_loaded=False
@@ -96,6 +104,7 @@ class DataEditor(QtGui.QWidget):
         line_controller_area_layout.addWidget(insert_new_line_button)
         line_controller_area_layout.addWidget(delete_line_button)
         line_controller_area_layout.addWidget(copy_line_button)
+        line_controller_area_layout.setContentsMargins(0,15,0,15)
         line_controller_area_box=QtGui.QWidget()
         line_controller_area_box.setLayout(line_controller_area_layout)
         delete_line_button.clicked.connect(self.delete_row)
@@ -171,7 +180,7 @@ class DataEditor(QtGui.QWidget):
         self.line_editor_area_list.clear()
         json_list=[]
         for row in self.dict_list:
-            json_list.append(json.dumps(row))
+            json_list.append(json.dumps(row,ensure_ascii=False))
         self.line_editor_area_list.addItems(json_list)
 
     def display_item_view(self,row_num):
@@ -185,7 +194,7 @@ class DataEditor(QtGui.QWidget):
             field_type=field.split('_',1)[0]
             field_name_label=QtGui.QLabel(field_name)
             field_type_label=QtGui.QLabel(field_type)
-            field_data_line=QtGui.QLineEdit(json.dumps(field_data).strip('"').strip("'"))
+            field_data_line=QtGui.QLineEdit(json.dumps(field_data,ensure_ascii=False).strip('"').strip("'"))
             field_data_line.setValidator(self.type_validator(field_type.lower()))
             new_item=[field_name_label,field_type_label,field_data_line]
             self.item_list.append(new_item)
@@ -198,12 +207,7 @@ class DataEditor(QtGui.QWidget):
         if self.data_loaded:
             self.display_item_view(self.line_editor_area_list.currentRow())
 
-    def save_to_json(self):
-        j=json.dumps(self.dict_list,indent=2)
-        file_name=QtGui.QFileDialog.getSaveFileName(self,u"json文件保存",QtCore.QDir.currentPath()+"/json_output/"+".json","json files (*.json)")
-        if file_name<>"":
-            with open(file_name, 'w') as f:
-                f.write(j)
+
 
     def load_from_excel(self):
         file_name=QtGui.QFileDialog.getOpenFileName(self,u"excel文件打开",QtCore.QDir.currentPath()+"/excel_input/","excel files (*.xls)")
@@ -220,6 +224,35 @@ class DataEditor(QtGui.QWidget):
             self.data_loaded=True
             self.schema_dict=self.dict_list[0]
 
+
+    def load_from_json(self):
+        file_name=QtGui.QFileDialog.getOpenFileName(self,u"json文件打开",QtCore.QDir.currentPath()+"/json_input/","json files (*.json)")
+        if file_name<>"":
+            with open(file_name) as json_file:
+                self.dict_list = json.load(json_file,object_pairs_hook=OrderedDict)
+                self.display_line_view()
+                self.right_panel.hide()
+                self.data_loaded=True
+                self.schema_dict=self.dict_list[0]
+
+    def save_to_json(self):
+        file_name=QtGui.QFileDialog.getSaveFileName(self,u"json文件保存",QtCore.QDir.currentPath()+"/json_output/"+".json","json files (*.json)")
+        j=json.dumps(self.dict_list,ensure_ascii=False,indent=2)
+        if file_name<>"":
+            with open(file_name, 'w') as f:
+                f.write(j.encode('utf-8'))
+
+    def save_to_excel(self):
+        file_name=QtGui.QFileDialog.getSaveFileName(self,u"excel文件保存",QtCore.QDir.currentPath()+"/excel_output"+".xls","xls files (*.xls)")
+        xls=xlwt.Workbook(encoding='UTF-8')
+        sheet=xls.add_sheet("Sheet1")
+        for col in range(len(self.schema_dict)):
+            sheet.write(0,col,self.schema_dict.keys()[col])
+        for row in range(len(self.dict_list)):
+            for col in range(len(self.schema_dict)):
+                sheet.write(row+1,col,json.dumps(self.dict_list[row].values()[col],ensure_ascii=False).strip('"').strip("'"))
+        xls.save(file_name)
+
     def save_item_change(self):
         selected_row=self.line_editor_area_list.currentRow()
         field_names=[]
@@ -230,7 +263,7 @@ class DataEditor(QtGui.QWidget):
             field_names.append(str(widget_item_row[1].text()+'_'+widget_item_row[0].text()))
             field_values.append(str(widget_item_row[2].text()))
         self.dict_list[selected_row]=OrderedDict(format_row_data(field_names,field_values))
-        self.line_editor_area_list.item(selected_row).setText(json.dumps(self.dict_list[selected_row]))
+        self.line_editor_area_list.item(selected_row).setText(json.dumps(self.dict_list[selected_row],ensure_ascii=False))
 
     def type_validator(self,type):
         if type in {'int'}:
