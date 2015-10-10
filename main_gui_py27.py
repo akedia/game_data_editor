@@ -269,7 +269,7 @@ class DataEditor(QtGui.QWidget):
 
     def load_from_excel(self):
         file_name = QtGui.QFileDialog.getOpenFileName(self, u"excel文件打开", "", "excel files (*.xls *.xlsx)")
-        if file_name <> "":
+        if file_name != "":
             self.dict_list = []
             self.sheet_names = []
             self.schema_dict = []
@@ -291,7 +291,7 @@ class DataEditor(QtGui.QWidget):
 
     def load_from_json(self):
         file_name = QtGui.QFileDialog.getOpenFileName(self, u"json文件打开", "", "json files (*.json)")
-        if file_name <> "":
+        if file_name != "":
             with open(unicode(file_name)) as json_file:
                 self.dict_list = []
                 self.sheet_names = []
